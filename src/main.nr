@@ -1,6 +1,5 @@
 mod types;
 
-
 contract Token {
     // Libs
     use dep::std::option::Option;
@@ -53,7 +52,7 @@ contract Token {
         symbol: StablePublicState<FieldCompressedString>,
         name: StablePublicState<FieldCompressedString>,
         decimals: StablePublicState<u8>,
-        my_array:Map<u64, PublicState<AztecAddress>>,
+        my_array:Map<Field, PublicState<AztecAddress>>,
         // my_arrays:PublicState<[AztecAddress; 100]>
     }
     #[aztec(private)]
@@ -68,14 +67,26 @@ contract Token {
         );
     }
 
-
-
- #[aztec(public)]
+    #[aztec(public)]
  //buy ticket=>> minting a token to enter the lottery
  //amount is fixed ticket price 
  //inputs is user age verifcation proff
-    fn buy_Tickets(current_year: u64, current_month: u64, current_day: u64, birth_year: u64, birth_month:u64, birth_day: u64) {
-   let verify= is_over_18(current_year, current_month, current_day, birth_year, birth_month, birth_day);
+    fn buy_Tickets(
+        current_year: u64,
+        current_month: u64,
+        current_day: u64,
+        birth_year: u64,
+        birth_month: u64,
+        birth_day: u64
+    ) {
+        let verify= is_over_18(
+            current_year,
+            current_month,
+            current_day,
+            birth_year,
+            birth_month,
+            birth_day
+        );
         assert(!verify, "you are not over 18");
         //WHERE 10000 is the ticket price
         let amount = SafeU120::new(10000);
@@ -83,7 +94,6 @@ contract Token {
         //cheek if user has minted before// you only get one ticket
         if ((storage.public_balances.at(context.msg_sender()).read().value) < 0) {
             assert(false, "you already have a ticket");
-            
         }
         let new_balance = storage.public_balances.at(context.msg_sender()).read().add(amount);
         let supply = storage.total_supply.read().add(amount);
@@ -92,20 +102,18 @@ contract Token {
         storage.total_supply.write(supply);
     }
 
-
     #[aztec(public)]
 fn enter_lottery() {
-    if (storage.public_balances.at(context.msg_sender()).read().value < 10000) {
-        assert(false, "you need to buy a ticket to enter the lottery");
+        if (storage.public_balances.at(context.msg_sender()).read().value < 10000) {
+            assert(false, "you need to buy a ticket to enter the lottery");
+        }
+        //enter the lottery
+        let mut value= 0;
+        storage.my_array.at(value).write(context.msg_sender());
+        value.add(1);
     }
-    //enter the lottery
-    let mut value= 0;
-    storage.my_array.at(value).write(context.msg_sender());
-    value += 1;
 
-}
-
-        #[aztec(public)]
+    #[aztec(public)]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
@@ -121,14 +129,12 @@ fn enter_lottery() {
         storage.public_balances.at(to).write(to_balance);
     }
 
-
-
-        #[aztec(public)]
+    #[aztec(public)]
    internal  fn _initialize(
         new_admin: AztecAddress,
         name: FieldCompressedString,
         symbol: FieldCompressedString,
-        decimals: u8,
+        decimals: u8
     ) {
         assert(!new_admin.is_zero(), "invalid admin");
         storage.admin.write(new_admin);
@@ -140,32 +146,31 @@ fn enter_lottery() {
         // docs:end:initialize_decimals
     }
 
+    unconstrained fn is_over_18(
+        current_year: u64,
+        current_month: u64,
+        current_day: u64,
+        birth_year: u64,
+        birth_month: u64,
+        birth_day: u64
+    ) -> pub bool {
+        // Compute the difference in years
+        let mut years_since_birth = current_year.sub(birth_year);
 
+        // Check if the current month is earlier than the birth month
+        // or if the current month is the same as the birth month but the current day is earlier
+        if (current_month < birth_month) {
+            // If so, subtract one from the calculated years because the person hasn't had their birthday yet this year
+            years_since_birth  -=   1;
+        }
 
-
-unconstrained fn is_over_18(current_year: u64, current_month: u64, current_day: u64, birth_year: u64, birth_month: u64, birth_day: u64) -> pub bool {
-    // Compute the difference in years
- let mut years_since_birth = current_year.sub(birth_year);
-    
-    // Check if the current month is earlier than the birth month
-    // or if the current month is the same as the birth month but the current day is earlier
-    if (current_month < birth_month ){
-        // If so, subtract one from the calculated years because the person hasn't had their birthday yet this year
-        years_since_birth  -=   1;
-    }
-    
-    // Return true if age is greater than   18
+        // Return true if age is greater than   18
         years_since_birth > 18
     }
 
-
-
-
-       unconstrained fn balance_of_public(owner: AztecAddress) -> pub u120 {
+    unconstrained fn balance_of_public(owner: AztecAddress) -> pub u120 {
         storage.public_balances.at(owner).read().value
     }
-
-
 
     unconstrained fn compute_note_hash_and_nullifier(
         contract_address: AztecAddress,
