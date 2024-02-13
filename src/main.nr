@@ -6,6 +6,7 @@ contract Token {
 
     use dep::safe_math::SafeU120;
     use dep::compressed_string::FieldCompressedString;
+    use dep::aztec::log::emit_unencrypted_log;
 
     use dep::aztec::{
         note::{
@@ -92,7 +93,7 @@ contract Token {
         let amount = SafeU120::new(10000);
 
         //cheek if user has minted before// you only get one ticket
-        if ((storage.public_balances.at(context.msg_sender()).read().value) < 0) {
+        if ((storage.public_balances.at(context.msg_sender()).read().value) > 10000) {
             assert(false, "you already have a ticket");
         }
         let new_balance = storage.public_balances.at(context.msg_sender()).read().add(amount);
@@ -111,6 +112,33 @@ fn enter_lottery() {
         let mut value= 0;
         storage.my_array.at(value).write(context.msg_sender());
         value.add(1);
+        //seding money to our lottery contract
+        let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field)");
+        let from = context.msg_sender();
+        let to = context.this_address();
+        context.call_public_function(
+            context.this_address(),
+            selector,
+            [from.to_field(), to.to_field(), 10000 as Field, 1 as Field]
+        );  
+        //implementing the lottery logic
+        if(block.timeStamp - lastblockTimeStamp > interval &&  storage.public_balances.at(from).view().value > 10000 ){
+            //somehash not yet implemented can  wrap my head around it
+            let winnerIndex= someHash % value;
+            let winner = storage.my_array.at(winner).read().value;
+            let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field)");
+            let from = context.this_address();
+            let to = winner;
+            context.call_public_function(
+                context.this_address(),
+                selector,
+                [from.to_field(), to.to_field(), storage.public_balances.at(from).view().value as Field, 1 as Field]
+            );  
+            emit_unencrypted_log(&mut context, value);
+            emit_unencrypted_log(&mut context, winner);
+
+        }
+    
     }
 
     #[aztec(public)]
