@@ -92,7 +92,7 @@ contract Token {
         let amount = SafeU120::new(10000);
 
         //cheek if user has minted before// you only get one ticket
-        if ((storage.public_balances.at(context.msg_sender()).read().value) < 0) {
+        if ((storage.public_balances.at(context.msg_sender()).read().value) > 0) {
             assert(false, "you already have a ticket");
         }
         let new_balance = storage.public_balances.at(context.msg_sender()).read().add(amount);
