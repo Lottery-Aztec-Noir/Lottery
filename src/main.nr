@@ -6,6 +6,7 @@ contract Token {
 
     use dep::safe_math::SafeU120;
     use dep::compressed_string::FieldCompressedString;
+    use dep::aztec::log::emit_unencrypted_log;
 
     use dep::aztec::{
         note::{
@@ -54,16 +55,26 @@ contract Token {
         decimals: StablePublicState<u8>,
         my_array:Map<Field, PublicState<AztecAddress>>,
         // my_arrays:PublicState<[AztecAddress; 100]>
+        lastTimeStamp: PublicState<u64>
     }
     #[aztec(private)]
-    fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8, ticket_price: SafeU120) {
-        let selector = FunctionSelector::from_signature("_initialize((Field),(Field),(Field),u8");
+    fn constructor(
+        admin: AztecAddress,
+        name: str<31>,
+        symbol: str<31>,
+        decimals: u8,
+        ticket_price: SafeU120,
+        lastTimeStamp: u64
+    ) {
+        let selector = FunctionSelector::from_signature("_initialize((Field),(Field),(Field),u8,u64");
         let name_s = FieldCompressedString::from_string(name);
         let symbol_s = FieldCompressedString::from_string(symbol);
         context.call_public_function(
             context.this_address(),
             selector,
-            [admin.to_field(), name_s.serialize()[0], symbol_s.serialize()[0], decimals as Field]
+            [
+            admin.to_field(), name_s.serialize()[0], symbol_s.serialize()[0], decimals as Field, lastTimeStamp as Field
+        ]
         );
     }
 
@@ -92,7 +103,7 @@ contract Token {
         let amount = SafeU120::new(10000);
 
         //cheek if user has minted before// you only get one ticket
-        if ((storage.public_balances.at(context.msg_sender()).read().value) > 0) {
+        if ((storage.public_balances.at(context.msg_sender()).read().value) > 10000) {
             assert(false, "you already have a ticket");
         }
         let new_balance = storage.public_balances.at(context.msg_sender()).read().add(amount);
@@ -103,14 +114,45 @@ contract Token {
     }
 
     #[aztec(public)]
-fn enter_lottery() {
+    //blocktimestamp will be passed with ethers.js in frontend
+fn enter_lottery(blocktimeStamp: u64) {
         if (storage.public_balances.at(context.msg_sender()).read().value < 10000) {
             assert(false, "you need to buy a ticket to enter the lottery");
         }
         //enter the lottery
-        let mut value= 0;
-        storage.my_array.at(value).write(context.msg_sender());
-        value.add(1);
+        let mut valueIndex= 0;
+        storage.my_array.at(valueIndex).write(context.msg_sender());
+        valueIndex.add(1);
+        //seding money to our lottery contract
+        let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field)");
+        let from = context.msg_sender();
+        let to = context.this_address();
+        context.call_public_function(
+            context.this_address(),
+            selector,
+            [from.to_field(), to.to_field(), 10000 as Field, 1 as Field]
+        );
+        //implementing the lottery logic
+        //block.timeStamp not implemted, lastblockTimeStamp not implemented 
+        //interval =30;
+        if ((blocktimeStamp - storage.lastTimeStamp.read().value) > 30
+            & storage.public_balances.at(from).view().value > 10000) {
+            //somehash not yet implemented can  wrap my head around it
+            let winnerIndex= somehash % valueIndex;
+            let winner = storage.my_array.at(winnerIndex).read();
+            let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field)");
+            let from = context.this_address();
+            let to = winner;
+            context.call_public_function(
+                context.this_address(),
+                selector,
+                [
+                from.to_field(), to.to_field(), storage.public_balances.at(from).read().value as Field, 1 as Field
+            ]
+            );
+            emit_unencrypted_log(&mut context, winnerIndex);
+            emit_unencrypted_log(&mut context, winner);
+        }
     }
 
     #[aztec(public)]
@@ -134,16 +176,16 @@ fn enter_lottery() {
         new_admin: AztecAddress,
         name: FieldCompressedString,
         symbol: FieldCompressedString,
-        decimals: u8
+        decimals: u8,
+        lastTimeStamp: u64
     ) {
         assert(!new_admin.is_zero(), "invalid admin");
         storage.admin.write(new_admin);
         storage.minters.at(new_admin).write(true);
         storage.name.initialize(name);
         storage.symbol.initialize(symbol);
-        // docs:start:initialize_decimals
         storage.decimals.initialize(decimals);
-        // docs:end:initialize_decimals
+        storage.lastTimeStamp.write(lastTimeStamp);
     }
 
     unconstrained fn is_over_18(
