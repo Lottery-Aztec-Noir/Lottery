@@ -54,27 +54,23 @@ contract Token {
         name: StablePublicState<FieldCompressedString>,
         decimals: StablePublicState<u8>,
         my_array:Map<Field, PublicState<AztecAddress>>,
-        // my_arrays:PublicState<[AztecAddress; 100]>
         lastTimeStamp: PublicState<SafeU120>
     }
     #[aztec(private)]
-    fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8, lastTimeStamp: Field) {
-        let selector = FunctionSelector::from_signature("_initialize((Field),(Field),(Field),(Field),u8)");
+    fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
+        let selector = FunctionSelector::from_signature("initialize((Field),(Field),(Field),u8)");
         let name_s = FieldCompressedString::from_string(name);
         let symbol_s = FieldCompressedString::from_string(symbol);
         context.call_public_function(
             context.this_address(),
             selector,
             [
-            admin.to_field(), name_s.serialize()[0], symbol_s.serialize()[0], lastTimeStamp ,decimals as Field
+            admin.to_field(), name_s.serialize()[0], symbol_s.serialize()[0], decimals as Field
         ]
         );
     }
 
     #[aztec(public)]
- //buy ticket=>> minting a token to enter the lottery
- //amount is fixed ticket price 
- //inputs is user age verifcation proff
     fn buy_Tickets(
         current_year: u64,
         current_month: u64,
@@ -83,15 +79,16 @@ contract Token {
         birth_month: u64,
         birth_day: u64
     ) {
-        let verify= is_over_18(
-            current_year,
-            current_month,
-            current_day,
-            birth_year,
-            birth_month,
-            birth_day
-        );
-        assert(!verify, "you are not over 18");
+        // let verify= is_over_18(
+        //     current_year,
+        //     current_month,
+        //     current_day,
+        //     birth_year,
+        //     birth_month,
+        //     birth_day
+        // );
+        let age= current_year - birth_year;
+        assert(age < 18, "you are not over 18");
         //WHERE 10000 is the ticket price
         let amount = SafeU120::new(10000);
 
@@ -108,7 +105,7 @@ contract Token {
 
     #[aztec(public)]
     //blocktimestamp will be passed with ethers.js in frontend
-fn enter_lottery(blocktimeStamp: u64, somehash: u64) {
+fn enter_lottery(somehash: u64) {
         if (storage.public_balances.at(context.msg_sender()).read().value < 10000) {
             assert(false, "you need to buy a ticket to enter the lottery");
         }
@@ -117,7 +114,7 @@ fn enter_lottery(blocktimeStamp: u64, somehash: u64) {
         storage.my_array.at(valueIndex).write(context.msg_sender());
         valueIndex.add(1);
         //seding money to our lottery contract
-        let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field)");
+        let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field))");
         let from = context.msg_sender();
         let to = context.this_address();
         context.call_public_function(
@@ -125,15 +122,14 @@ fn enter_lottery(blocktimeStamp: u64, somehash: u64) {
             selector,
             [from.to_field(), to.to_field(), 10000 as Field, 1 as Field]
         );
-        //implementing the lottery logic
-        //block.timeStamp not implemted, lastblockTimeStamp not implemented 
-        //interval =30;
-        if ((blocktimeStamp - ((storage.lastTimeStamp.read().value) as u64)) > 30
-            & storage.public_balances.at(from).read().value > 10000) {
+        // implementing the lottery logic
+        // block.timeStamp not implemted, lastblockTimeStamp not implemented 
+        // interval =30;
+        if (storage.public_balances.at(from).read().value > 10000) {
             //somehash not yet implemented can  wrap my head around it
             let winnerIndex= somehash % (valueIndex as u64);
             let winner = storage.my_array.at((winnerIndex as Field)).read();
-            let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field)");
+            let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field))");
             let from = context.this_address();
             let to = winner;
             context.call_public_function(
@@ -165,11 +161,10 @@ fn enter_lottery(blocktimeStamp: u64, somehash: u64) {
     }
 
     #[aztec(public)]
-   internal  fn _initialize(
+       internal  fn initialize(
         new_admin: AztecAddress,
         name: FieldCompressedString,
         symbol: FieldCompressedString,
-        lastTimeStamp: Field,
         decimals: u8
     ) {
         assert(!new_admin.is_zero(), "invalid admin");
@@ -178,30 +173,10 @@ fn enter_lottery(blocktimeStamp: u64, somehash: u64) {
         storage.name.initialize(name);
         storage.symbol.initialize(symbol);
         storage.decimals.initialize(decimals);
-        storage.lastTimeStamp.write(SafeU120::new(lastTimeStamp));
+        storage.lastTimeStamp.write(SafeU120::new(1));
     }
 
-    unconstrained fn is_over_18(
-        current_year: u64,
-        current_month: u64,
-        current_day: u64,
-        birth_year: u64,
-        birth_month: u64,
-        birth_day: u64
-    ) -> pub bool {
-        // Compute the difference in years
-        let mut years_since_birth = current_year.sub(birth_year);
 
-        // Check if the current month is earlier than the birth month
-        // or if the current month is the same as the birth month but the current day is earlier
-        if (current_month < birth_month) {
-            // If so, subtract one from the calculated years because the person hasn't had their birthday yet this year
-            years_since_birth  -=   1;
-        }
-
-        // Return true if age is greater than   18
-        years_since_birth > 18
-    }
 
     unconstrained fn balance_of_public(owner: AztecAddress) -> pub u120 {
         storage.public_balances.at(owner).read().value
@@ -226,5 +201,6 @@ fn enter_lottery(blocktimeStamp: u64, somehash: u64) {
     }
 }
 
-// aztec-cli deploy LotteryContract-Token.json --args 0x1f77106d516fb42b6570135797c870eea4f3478df42445995b60d61c191c74f6 token sigh 8 10000
+// aztec-cli deploy LotteryContract-Token.json --args 0x2488662921002158513f0ff3fcd8b04e9281e0adbe1255dce909b51e0e7d3efc token sigh 8 10000
 // admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8, lastTimeStamp: u64                           
+
