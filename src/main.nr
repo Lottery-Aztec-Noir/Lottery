@@ -58,15 +58,15 @@ contract Token {
         lastTimeStamp: PublicState<SafeU120>
     }
     #[aztec(private)]
-    fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8, lastTimeStamp: u64) {
-        let selector = FunctionSelector::from_signature("_initialize((Field),(Field),(Field),u8,(Field))");
+    fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8, lastTimeStamp: Field) {
+        let selector = FunctionSelector::from_signature("_initialize((Field),(Field),(Field),(Field),u8)");
         let name_s = FieldCompressedString::from_string(name);
         let symbol_s = FieldCompressedString::from_string(symbol);
         context.call_public_function(
             context.this_address(),
             selector,
             [
-            admin.to_field(), name_s.serialize()[0], symbol_s.serialize()[0], decimals as Field, lastTimeStamp as Field
+            admin.to_field(), name_s.serialize()[0], symbol_s.serialize()[0], lastTimeStamp ,decimals as Field
         ]
         );
     }
@@ -169,8 +169,8 @@ fn enter_lottery(blocktimeStamp: u64, somehash: u64) {
         new_admin: AztecAddress,
         name: FieldCompressedString,
         symbol: FieldCompressedString,
-        decimals: u8,
-        lastTimeStamp: SafeU120
+        lastTimeStamp: Field,
+        decimals: u8
     ) {
         assert(!new_admin.is_zero(), "invalid admin");
         storage.admin.write(new_admin);
@@ -178,7 +178,7 @@ fn enter_lottery(blocktimeStamp: u64, somehash: u64) {
         storage.name.initialize(name);
         storage.symbol.initialize(symbol);
         storage.decimals.initialize(decimals);
-        storage.lastTimeStamp.write(lastTimeStamp);
+        storage.lastTimeStamp.write(SafeU120::new(lastTimeStamp));
     }
 
     unconstrained fn is_over_18(
@@ -226,3 +226,5 @@ fn enter_lottery(blocktimeStamp: u64, somehash: u64) {
     }
 }
 
+// aztec-cli deploy LotteryContract-Token.json --args 0x1f77106d516fb42b6570135797c870eea4f3478df42445995b60d61c191c74f6 token sigh 8 10000
+// admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8, lastTimeStamp: u64                           
