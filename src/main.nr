@@ -64,9 +64,7 @@ contract Token {
         context.call_public_function(
             context.this_address(),
             selector,
-            [
-            admin.to_field(), name_s.serialize()[0], symbol_s.serialize()[0], decimals as Field
-        ]
+            [admin.to_field(), name_s.serialize()[0], symbol_s.serialize()[0], decimals as Field]
         );
     }
 
@@ -88,7 +86,8 @@ contract Token {
         //     birth_day
         // );
         let age= current_year - birth_year;
-        assert(age < 18, "you are not over 18");
+        // assert(age < 18, "you are not over 18");
+        assert(age >= 18, "you are not over 18");
         //WHERE 10000 is the ticket price
         let amount = SafeU120::new(10000);
 
@@ -175,8 +174,6 @@ fn enter_lottery(somehash: u64) {
         storage.decimals.initialize(decimals);
         storage.lastTimeStamp.write(SafeU120::new(1));
     }
-
-
 
     unconstrained fn balance_of_public(owner: AztecAddress) -> pub u120 {
         storage.public_balances.at(owner).read().value
