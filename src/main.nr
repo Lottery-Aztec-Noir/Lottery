@@ -53,7 +53,10 @@ contract Token {
         symbol: StablePublicState<FieldCompressedString>,
         name: StablePublicState<FieldCompressedString>,
         decimals: StablePublicState<u8>,
-        my_array:Map<Field, PublicState<AztecAddress>>,
+        players_registry: Map<Field, PublicState<AztecAddress>>,
+        player_registered:  Map<AztecAddress, PublicState<bool>>,
+        counter: PublicState<Field>,
+        winnerChosen: PublicState<bool>,
         lastTimeStamp: PublicState<SafeU120>
     }
     #[aztec(private)]
@@ -77,70 +80,42 @@ contract Token {
         birth_month: u64,
         birth_day: u64
     ) {
-        // let verify= is_over_18(
-        //     current_year,
-        //     current_month,
-        //     current_day,
-        //     birth_year,
-        //     birth_month,
-        //     birth_day
-        // );
-        let age= current_year - birth_year;
-        // assert(age < 18, "you are not over 18");
+        let age = current_year - birth_year;
         assert(age >= 18, "you are not over 18");
-        //WHERE 10000 is the ticket price
-        let amount = SafeU120::new(10000);
+        assert(age <= 100, "you are too old");
+        assert(
+            (storage.player_registered.at(context.msg_sender()).read()) == false, "you already have a ticket"
+        );
 
-        //cheek if user has minted before// you only get one ticket
-        if ((storage.public_balances.at(context.msg_sender()).read().value) > 10000) {
-            assert(false, "you already have a ticket");
-        }
-        let new_balance = storage.public_balances.at(context.msg_sender()).read().add(amount);
-        let supply = storage.total_supply.read().add(amount);
+        let mut counter = (storage.counter.read());
+        //update mapping(counter => address) so that later the admin can choose the counter that will win the lottery.
+        storage.players_registry.at(counter).write(context.msg_sender());
+        storage.counter.write(counter + 1);
 
-        storage.public_balances.at(context.msg_sender()).write(new_balance);
-        storage.total_supply.write(supply);
+        //update state so check whether an address is already resgistered in a lottery or not
+        storage.player_registered.at(context.msg_sender()).write(true);
     }
 
     #[aztec(public)]
-    //blocktimestamp will be passed with ethers.js in frontend
-fn enter_lottery(somehash: u64) {
-        if (storage.public_balances.at(context.msg_sender()).read().value < 10000) {
-            assert(false, "you need to buy a ticket to enter the lottery");
-        }
-        //enter the lottery
-        let mut valueIndex= 0;
-        storage.my_array.at(valueIndex).write(context.msg_sender());
-        valueIndex.add(1);
-        //seding money to our lottery contract
-        let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field))");
-        let from = context.msg_sender();
-        let to = context.this_address();
-        context.call_public_function(
-            context.this_address(),
-            selector,
-            [from.to_field(), to.to_field(), 10000 as Field, 1 as Field]
+    fn chooseWinner(randomNumber: Field) {
+        //msg.sender should be the admin
+        assert(context.msg_sender() == storage.admin.read(), "msg_sender not admin");
+        //if the winner storage value is already filled, this function should revert. 
+        assert(storage.winnerChosen.read() == false, "winner already chosen");
+        //based on randomNumber that the admin uses, the winner will be automatically chosen from the players_array
+        // a % b = a - (b * (a / b)) // modulo operation
+
+        // a.div(b).mul(b)
+        // let winnerIndex = randomNumber.sub(storage.counter.read().mul(randomNumber.div(storage.counter.read())));
+
+        let winnerIndex = randomNumber - (storage.counter.read() * (randomNumber / storage.counter.read()));
+        //once the winner is decided, the public state 'winner' will have an aztec address filled.
+        storage.winnerChosen.write(true);
+        //the winner's balance will go up.
+        storage.public_balances.at(storage.players_registry.at(winnerIndex).read()).write(
+            storage.public_balances.at(storage.players_registry.at(winnerIndex).read()).read().add(SafeU120::new(10000))
         );
-        // implementing the lottery logic
-        // block.timeStamp not implemted, lastblockTimeStamp not implemented 
-        // interval =30;
-        if (storage.public_balances.at(from).read().value > 10000) {
-            //somehash not yet implemented can  wrap my head around it
-            let winnerIndex= somehash % (valueIndex as u64);
-            let winner = storage.my_array.at((winnerIndex as Field)).read();
-            let selector = FunctionSelector::from_signature("transfer_public((Field),(Field),(Field),(Field))");
-            let from = context.this_address();
-            let to = winner;
-            context.call_public_function(
-                context.this_address(),
-                selector,
-                [
-                from.to_field(), to.to_field(), storage.public_balances.at(from).read().value as Field, 1 as Field
-            ]
-            );
-            emit_unencrypted_log(&mut context, winnerIndex);
-            emit_unencrypted_log(&mut context, winner);
-        }
+        //once this is implemented, I should try to make a privte version of lottery.
     }
 
     #[aztec(public)]
@@ -197,7 +172,4 @@ fn enter_lottery(somehash: u64) {
         }
     }
 }
-
-// aztec-cli deploy LotteryContract-Token.json --args 0x2488662921002158513f0ff3fcd8b04e9281e0adbe1255dce909b51e0e7d3efc token sigh 8 10000
-// admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8, lastTimeStamp: u64                           
 
