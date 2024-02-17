@@ -89,7 +89,7 @@ contract Token {
 
         let mut counter = (storage.counter.read());
         //update mapping(counter => address) so that later the admin can choose the counter that will win the lottery.
-        storage.players_registry.at(counter + 1).write(context.msg_sender());
+        storage.players_registry.at(counter).write(context.msg_sender());
         storage.counter.write(counter + 1);
 
         //update state so check whether an address is already resgistered in a lottery or not
@@ -104,7 +104,11 @@ contract Token {
         assert(storage.winnerChosen.read() == false, "winner already chosen");
         //based on randomNumber that the admin uses, the winner will be automatically chosen from the players_array
         // a % b = a - (b * (a / b)) // modulo operation
-        let winnerIndex = randomNumber.sub(storage.counter.read().mul(randomNumber.div(storage.counter.read())));
+
+        // a.div(b).mul(b)
+        // let winnerIndex = randomNumber.sub(storage.counter.read().mul(randomNumber.div(storage.counter.read())));
+
+        let winnerIndex = randomNumber - (storage.counter.read() * (randomNumber / storage.counter.read()));
         //once the winner is decided, the public state 'winner' will have an aztec address filled.
         storage.winnerChosen.write(true);
         //the winner's balance will go up.
