@@ -108,7 +108,15 @@ contract Token {
         // a.div(b).mul(b)
         // let winnerIndex = randomNumber.sub(storage.counter.read().mul(randomNumber.div(storage.counter.read())));
 
-        let winnerIndex = randomNumber - (storage.counter.read() * (randomNumber / storage.counter.read()));
+        //should I just create a random number using the addresses that are registered?
+        // let winnerIndex = randomNumber - (storage.counter.read() * (randomNumber / storage.counter.read()));
+        // let winnerIndex = randomNumber.div(storage.counter.read());
+        // let winnerIndex = randomNumber / (storage.counter.read());
+
+        // solution #1 just use integer
+        //  solution #2, calculate modulo ofchain and then put as arg.
+        //  solution #3, or make the winner choosing logic privately only, so that the selection process will be secret.
+
         //once the winner is decided, the public state 'winner' will have an aztec address filled.
         storage.winnerChosen.write(true);
         //the winner's balance will go up.
