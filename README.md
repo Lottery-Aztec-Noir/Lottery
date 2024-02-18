@@ -1,44 +1,48 @@
-# Aztec Noir Lottery 
+# Token Contract
 
-This project implements a decentralized lottery system on the Aztec Network, leveraging the power of zero-knowledge proofs for privacy.
+This repository contains a smart contract for a token system built on the Aztec protocol. The contract allows users to buy tickets for a lottery, with the winner being chosen by the admin. The contract also includes functionality for transferring tokens and checking balances.
 
-## Core Features
+## Features
 
-* **Ticket Purchases:** Users can purchase lottery tickets using your Token contract. Verification ensures that each user can only buy one ticket per lottery drawing.
-* **Public Entry:** Participants enter the lottery via a public function call. Users must hold a valid lottery ticket at the time of entry. 
-* **Time-Based Logic:** The lottery executes periodically (using a passed-in block timestamp from outside the ZKP environment). When the interval since the last lottery exceeds a threshold, the smart contract determines a winner.
-* **Secure Winner Selection:** A hash-based mechanism (replace with an oracle like Chainlink VRF in production) selects a winner from the entered participants.
-* **Transparency:** While preserving privacy, relevant lottery information can be logged for debugging and potential auditing.
+- **Ticket Purchase**: Users can buy lottery tickets if they are over  18 and under  100 years old.
+- **Lottery Winner Selection**: The admin can choose the winner of the lottery using a random number.
+- **Token Transfer**: Users can transfer tokens to other addresses.
+- **Balance Checking**: Users can check their token balance.
 
-## Smart Contract Overview
+## Installation
 
-* **Token Contract (`contracts/Token.no`)** 
-    * **`buy_Tickets()`**: Handles the purchase of lottery tickets using the token.  Implements price determination and user balance checks.
-    * **`transfer_public()`:** Facilitates token transfers between users as needed (e.g., for sending winnings).
-    * **`balance_of_public()`:**  Allows checking a user's token balance. 
-    * **... (Add descriptions for other relevant functions in your Token contract)** 
+To interact with this contract, you will need to have the Aztec protocol installed and configured on your system. Follow the instructions provided by the Aztec protocol documentation to set up your environment.
 
-* **Lottery Contract (`contracts/Lottery.no`)**
-    * **`enter_lottery()`** 
-        * Verifies the prospective entrant holds a valid lottery ticket.
-        * Records the entrant's address.
-        * Transfers the ticket cost to the lottery contract's balance.
-        * Implements the core time-based lottery execution trigger.
-    * **`some_hash()`** [Placeholder]: Function responsible for generating a pseudo-random number to aid in winner selection.  **Important:**  Replace with a secure mechanism, preferably  an oracle, in production.
-    * **`_initialize()`**: Handles smart contract setup, such as setting an initial admin.
+## Usage
 
-## Getting Started
+### Buying Tickets
 
-### Prerequisites
-* Node.js and npm (or yarn)
-* Basic understanding of Aztec Noir and zero-knowledge proof concepts
+To buy a ticket, call the `buy_Tickets` function with the current date and your birth date. Ensure you are over  18 and under  100 years old.
 
-### Try it on Gitpod
 
-Click here to launch a pre-configured development environment in Gitpod!: [https://gitpod.io/#https://github.com/Lottery-Aztec-Noir/Lottery](https://gitpod.io/#https://github.com/Lottery-Aztec-Noir/Lottery)
 
-### Setting Up a Local Development Environment
+### Choosing the Winner
 
-1. **Clone the repository:**
-   ```bash
-   git clone [https://gitpod.io/#https://github.com/Lottery-Aztec-Noir/Lottery](https://gitpod.io/#https://github.com/Lottery-Aztec-Noir/Lottery)
+The admin can choose the winner of the lottery by calling the `chooseWinner` function with a random number.
+
+
+### Transferring Tokens
+
+To transfer tokens, call the `transfer_public` function with the recipient's address and the amount to transfer.
+
+
+## Gitpod
+
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/Lottery-Aztec-Noir/Lottery)
+
+Click the button above to open this project in a new Gitpod workspace. Gitpod is an online IDE that allows you to develop directly in your browser without the need to set up a local development environment.
+
+
+## Contributing
+
+If you would like to contribute to this project, please fork the repository, make your changes, and create a pull request to the main branch.
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+
