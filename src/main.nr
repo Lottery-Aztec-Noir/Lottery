@@ -8,6 +8,14 @@ contract Token {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::log::emit_unencrypted_log;
 
+    use dep::value_note::{
+            balance_utils,
+            value_note::{
+                ValueNote,
+                VALUE_NOTE_LEN,
+            },
+    };
+    
     use dep::aztec::{
         note::{
             note_getter_options::NoteGetterOptions,
@@ -24,6 +32,7 @@ contract Token {
     };
 
     use dep::easy_private_state::easy_private_state::EasyPrivateUint;
+
 
     // docs:start:import_authwit
     use dep::authwit::{
@@ -99,36 +108,6 @@ contract Token {
         storage.player_registered.at(context.msg_sender()).write(true);
     }
 
-    #[aztec(private)]
-    fn chooseWinner_private(randomNumber: u32) {
-        //msg.sender should be the admin
-        assert(context.msg_sender() == storage.admin.read(), "msg_sender not admin");
-        //if the winner storage value is already filled, this function should revert. 
-        assert(storage.winnerChosen.read() == false, "winner already chosen");
-
-        let calculate_winner_index = |randomNumber: u32, totalEntries: u32| -> u32 {
-            randomNumber & (totalEntries - 1)
-        };
-
-        let randomInt: u32 = randomNumber;
-        let totalEntries: u32 = storage.counter.read() as u32;
-
-        assert(totalEntries != 0, "totalEntries cannot be zero");
-        let power_of_two_check: u32 = totalEntries & (totalEntries - 1);
-
-        assert(power_of_two_check == 0, "totalEntries must be a power of two");
-
-        let winnerIndex: u32 = calculate_winner_index(randomInt, totalEntries);
-
-        //once the winner is decided, the public state 'winner' will have an aztec address filled.
-        storage.winnerChosen.write(true);
-        //the winner's balance will go up.
-        let winnerIndexField = winnerIndex as Field;
-        let balances = storage.balances;
-        let winnerAddress = storage.players_registry.at(winnerIndexField).read();
-        balances.at(winnerAddress).add(SafeU120::new(10000));
-    }
-
     #[aztec(public)]
     fn chooseWinner(randomNumber: u32) {
         //msg.sender should be the admin
@@ -191,8 +170,46 @@ contract Token {
         storage.lastTimeStamp.write(SafeU120::new(1));
     }
 
+    #[aztec(private)]
+    fn chooseWinner_private(randomNumber: u32) {
+        //msg.sender should be the admin
+        assert(context.msg_sender() == storage.admin.read(), "msg_sender not admin");
+        //if the winner storage value is already filled, this function should revert. 
+        assert(storage.winnerChosen.read() == false, "winner already chosen");
+
+        let calculate_winner_index = |randomNumber: u32, totalEntries: u32| -> u32 {
+            randomNumber & (totalEntries - 1)
+        };
+
+        let randomInt: u32 = randomNumber;
+        let totalEntries: u32 = storage.counter.read() as u32;
+
+        assert(totalEntries != 0, "totalEntries cannot be zero");
+        let power_of_two_check: u32 = totalEntries & (totalEntries - 1);
+
+        assert(power_of_two_check == 0, "totalEntries must be a power of two");
+
+        let winnerIndex: u32 = calculate_winner_index(randomInt, totalEntries);
+
+        //once the winner is decided, the public state 'winner' will have an aztec address filled.
+        storage.winnerChosen.write(true);
+        //the winner's balance will go up.
+        let winnerIndexField = winnerIndex as Field;
+        let balances = storage.balances;
+        let winnerAddress = storage.players_registry.at(winnerIndexField).read();
+        let amount: u120 = 10000;
+        balances.at(winnerAddress).add(amount, winnerAddress);
+    }
+
     unconstrained fn balance_of_public(owner: AztecAddress) -> pub u120 {
         storage.public_balances.at(owner).read().value
+    }
+
+    unconstrained fn getBalance(owner: AztecAddress) -> pub Field {
+        let balances = storage.balances;
+
+        // Return the sum of all notes in the set.
+        balance_utils::get_balance(balances.at(owner).set)
     }
 
     unconstrained fn winner_chosen() -> pub bool {
