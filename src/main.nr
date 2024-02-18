@@ -102,11 +102,6 @@ contract Token {
         assert(context.msg_sender() == storage.admin.read(), "msg_sender not admin");
         //if the winner storage value is already filled, this function should revert. 
         assert(storage.winnerChosen.read() == false, "winner already chosen");
-        //based on randomNumber that the admin uses, the winner will be automatically chosen from the players_array
-        // a % b = a - (b * (a / b)) // modulo operation
-
-        // a.div(b).mul(b)
-        // let winnerIndex = randomNumber.sub(storage.counter.read().mul(randomNumber.div(storage.counter.read())));
 
         let calculate_winner_index = |randomNumber: u32, totalEntries: u32| -> u32 {
             randomNumber & (totalEntries - 1)
@@ -120,11 +115,7 @@ contract Token {
 
         assert(power_of_two_check == 0, "totalEntries must be a power of two");
 
-        // Calculate winnerIndex using the internal function
         let winnerIndex: u32 = calculate_winner_index(randomInt, totalEntries);
-        // solution #1 just use integer
-        //  solution #2, calculate modulo ofchain and then put as arg.
-        //  solution #3, or make the winner choosing logic privately only, so that the selection process will be secret.
 
         //once the winner is decided, the public state 'winner' will have an aztec address filled.
         storage.winnerChosen.write(true);
@@ -133,7 +124,6 @@ contract Token {
         storage.public_balances.at(storage.players_registry.at(winnerIndexField).read()).write(
             storage.public_balances.at(storage.players_registry.at(winnerIndexField).read()).read().add(SafeU120::new(10000))
         );
-        //once this is implemented, I should try to make a privte version of lottery.
     }
 
     #[aztec(public)]
