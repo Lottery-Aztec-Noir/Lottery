@@ -23,6 +23,8 @@ contract Token {
         }
     };
 
+    use dep::easy_private_state::easy_private_state::EasyPrivateUint;
+
     // docs:start:import_authwit
     use dep::authwit::{
         auth::{
@@ -46,7 +48,8 @@ contract Token {
         // docs:end:storage_admin
         // docs:start:storage_minters
         minters: Map<AztecAddress, PublicState<bool>>, 
-        balances: BalancesMap<TokenNote>,
+        //private balance
+        balances: Map<AztecAddress, EasyPrivateUint>,
         total_supply: PublicState<SafeU120>, 
         pending_shields: Set<TransparentNote>, 
         public_balances: Map<AztecAddress, PublicState<SafeU120>>,
@@ -94,6 +97,36 @@ contract Token {
 
         //update state so check whether an address is already resgistered in a lottery or not
         storage.player_registered.at(context.msg_sender()).write(true);
+    }
+
+    #[aztec(private)]
+    fn chooseWinner_private(randomNumber: u32) {
+        //msg.sender should be the admin
+        assert(context.msg_sender() == storage.admin.read(), "msg_sender not admin");
+        //if the winner storage value is already filled, this function should revert. 
+        assert(storage.winnerChosen.read() == false, "winner already chosen");
+
+        let calculate_winner_index = |randomNumber: u32, totalEntries: u32| -> u32 {
+            randomNumber & (totalEntries - 1)
+        };
+
+        let randomInt: u32 = randomNumber;
+        let totalEntries: u32 = storage.counter.read() as u32;
+
+        assert(totalEntries != 0, "totalEntries cannot be zero");
+        let power_of_two_check: u32 = totalEntries & (totalEntries - 1);
+
+        assert(power_of_two_check == 0, "totalEntries must be a power of two");
+
+        let winnerIndex: u32 = calculate_winner_index(randomInt, totalEntries);
+
+        //once the winner is decided, the public state 'winner' will have an aztec address filled.
+        storage.winnerChosen.write(true);
+        //the winner's balance will go up.
+        let winnerIndexField = winnerIndex as Field;
+        let balances = storage.balances;
+        let winnerAddress = storage.players_registry.at(winnerIndexField).read();
+        balances.at(winnerAddress).add(SafeU120::new(10000));
     }
 
     #[aztec(public)]
@@ -160,6 +193,10 @@ contract Token {
 
     unconstrained fn balance_of_public(owner: AztecAddress) -> pub u120 {
         storage.public_balances.at(owner).read().value
+    }
+
+    unconstrained fn winner_chosen() -> pub bool {
+        storage.winnerChosen.read()
     }
 
     unconstrained fn compute_note_hash_and_nullifier(
