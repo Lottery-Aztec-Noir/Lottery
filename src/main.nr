@@ -97,7 +97,7 @@ contract Token {
     }
 
     #[aztec(public)]
-    fn chooseWinner(randomNumber: Field) {
+    fn chooseWinner(randomNumber: u32) {
         //msg.sender should be the admin
         assert(context.msg_sender() == storage.admin.read(), "msg_sender not admin");
         //if the winner storage value is already filled, this function should revert. 
@@ -108,11 +108,20 @@ contract Token {
         // a.div(b).mul(b)
         // let winnerIndex = randomNumber.sub(storage.counter.read().mul(randomNumber.div(storage.counter.read())));
 
-        //should I just create a random number using the addresses that are registered?
-        // let winnerIndex = randomNumber - (storage.counter.read() * (randomNumber / storage.counter.read()));
-        // let winnerIndex = randomNumber.div(storage.counter.read());
-        // let winnerIndex = randomNumber / (storage.counter.read());
+        let calculate_winner_index = |randomNumber: u32, totalEntries: u32| -> u32 {
+            randomNumber & (totalEntries - 1)
+        };
 
+        let randomInt: u32 = randomNumber;
+        let totalEntries: u32 = storage.counter.read() as u32;
+
+        assert(totalEntries != 0, "totalEntries cannot be zero");
+        let power_of_two_check: u32 = totalEntries & (totalEntries - 1);
+
+        assert(power_of_two_check == 0, "totalEntries must be a power of two");
+
+        // Calculate winnerIndex using the internal function
+        let winnerIndex: u32 = calculate_winner_index(randomInt, totalEntries);
         // solution #1 just use integer
         //  solution #2, calculate modulo ofchain and then put as arg.
         //  solution #3, or make the winner choosing logic privately only, so that the selection process will be secret.
@@ -120,8 +129,9 @@ contract Token {
         //once the winner is decided, the public state 'winner' will have an aztec address filled.
         storage.winnerChosen.write(true);
         //the winner's balance will go up.
-        storage.public_balances.at(storage.players_registry.at(winnerIndex).read()).write(
-            storage.public_balances.at(storage.players_registry.at(winnerIndex).read()).read().add(SafeU120::new(10000))
+        let winnerIndexField = winnerIndex as Field;
+        storage.public_balances.at(storage.players_registry.at(winnerIndexField).read()).write(
+            storage.public_balances.at(storage.players_registry.at(winnerIndexField).read()).read().add(SafeU120::new(10000))
         );
         //once this is implemented, I should try to make a privte version of lottery.
     }
